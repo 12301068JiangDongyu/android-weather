@@ -71,7 +71,8 @@ handle:
     $config['index_page'] = '';
     ```
 2. config.yaml中
-```
+
+    ```
 handle:
   - rewrite: if(!is_dir() && !is_file() && path~"/") goto "/index.php/%{QUERY_STRING}"
   ```
