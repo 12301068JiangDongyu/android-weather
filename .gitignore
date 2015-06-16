@@ -1,6 +1,11 @@
+<<<<<<< HEAD
 .gradle
 /local.properties
 /.idea/workspace.xml
 /.idea/libraries
 .DS_Store
 /build
+=======
+.idea/
+.gradle/
+>>>>>>> fa679c8dfe32c5b890bc25e633808a1be679257b
