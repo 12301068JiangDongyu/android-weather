@@ -13,7 +13,7 @@ public class City implements Serializable {
     private String firstPY;
     private String allPY;
     private String allFirstPY;
-
+    public City(){}
     public City(String id, String province, String city, String number, String firstPY, String allPY, String allFirstPY) {
         this.id = id;
         this.province = province;

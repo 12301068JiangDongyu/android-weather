@@ -29,7 +29,7 @@ import pku.ss.liudong.model.Province;
  */
 public class CityActivity extends Activity{
     private static final int MESSAGE_GET_CITY_LIST = 1;
-    public static final int RESULT_CODE_CITYLIST_OK = 2;
+    public static final int RESULT_CODE_CITY_OK = 2;
     private TextView mTitleCity;
     private ImageView mTitleBackBtn;
     private ListView mListView;
@@ -46,7 +46,6 @@ public class CityActivity extends Activity{
             public void handleMessage(Message msg){
                 switch(msg.what){
                     case MESSAGE_GET_CITY_LIST:
-                        //cityList = (ArrayList<City>)msg.obj;
                         cityList = getCityListByProvinceCode((ArrayList<City>)msg.obj);
                         filterCityList = new ArrayList<City>();
                         initCityList();
@@ -97,7 +96,7 @@ public class CityActivity extends Activity{
                 City item = (City)mListView.getItemAtPosition(position);
                 Intent i = new Intent();
                 i.putExtra("city",item);
-                setResult(RESULT_CODE_CITYLIST_OK,i);
+                setResult(RESULT_CODE_CITY_OK,i);
                 finish();
                 //Toast.makeText(CityActivity.this,"你选择的城市是："+city+",城市代码是"+number,Toast.LENGTH_LONG).show();
             }

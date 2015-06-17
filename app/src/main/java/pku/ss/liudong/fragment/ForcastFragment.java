@@ -47,7 +47,7 @@ public class ForcastFragment extends Fragment implements ViewPager.OnPageChangeL
         rootView = inflater.inflate(R.layout.fragment_forcast, container, false);
         initViews();
         initIndicator();
-        setForcastInfo();
+        //setForcastInfo(); //null pointer
         return rootView;
     }
     public void setWeather(Weather weather){

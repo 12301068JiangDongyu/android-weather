@@ -27,7 +27,7 @@
                 android:layout_height="40dip"
                 android:layout_centerVertical="true"
                 android:layout_toRightOf="@id/title_back"
-                android:background="#A71717"/>
+                android:background="#ffffff"/>
     </RelativeLayout>
     <EditText
         android:id="@+id/search_city_text"
@@ -37,11 +37,11 @@
         android:hint="搜索全国城市（中文）"
         android:layout_margin="10dip"
         android:drawableLeft="@drawable/magnifying_glass"
-        android:drawablePadding="8dip"
-        android:paddingBottom="8dip"
+        android:drawablePadding="4dip"
+        android:paddingTop="2dip"
+        android:paddingBottom="2dip"
         android:paddingLeft="10dip"
         android:paddingRight="30dip"
-        android:paddingTop="8dip"
         android:singleLine="true"
         android:background="@drawable/contact_search_box_edittext_keyword_background"
         android:textSize="15sp"

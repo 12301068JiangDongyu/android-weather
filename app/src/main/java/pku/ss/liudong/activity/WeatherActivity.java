@@ -1,22 +1,18 @@
 package pku.ss.liudong.activity;
 
 import android.app.Activity;
-import android.app.Fragment;
 import android.app.FragmentManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Bitmap;
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Message;
-import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -24,13 +20,12 @@ import android.widget.Toast;
 
 import com.alibaba.fastjson.JSON;
 
-import java.lang.reflect.Field;
-
 import pku.ss.liudong.fragment.ForcastFragment;
 import pku.ss.liudong.model.City;
 import pku.ss.liudong.model.Weather;
+import pku.ss.liudong.service.NotifyService;
 import pku.ss.liudong.util.CityPictureThread;
-import pku.ss.liudong.util.ImageUtil;
+import pku.ss.liudong.util.LocationUtil;
 import pku.ss.liudong.util.WeatherNetThread;
 import pku.ss.liudong.util.NetUtil;
 import pku.ss.liudong.util.PinYin;
@@ -39,28 +34,32 @@ public class WeatherActivity extends Activity {
     public static final String TAG = "WeatherActivity>>> ";
     private static final int CODE_CITY_ACTIVITY = 1;
     private static final int CODE_PROVINCE_ACTIVITY = 2;
-    private static final String SETTING_CONFIG = "config";
-    private static final String MAIN_CITY_CODE = "main_city_code";
+    public static final String SETTING_CONFIG = "config";
+    public static final String MAIN_CITY_CODE = "main_city_code";
     private static final String LAST_UPDATE_INFO = "last_update_info";
     private static final String LAST_UPDATE_PICTURE = "last_update_picture";
-    private String currentCity;
-    private ImageView titleUpdateBtn,chooseCityBtn;
-    private ProgressBar titleUpdateProgressBar;
-    private TextView titleCityName;
-    private TextView cityTv,timeTv,humidityTv,dayTv,pmDataTv,pmQualityTv,temperatureTv,climateTv,windTv;
-    private RelativeLayout viewMain;
-    private ImageView weatherImg,pmImg;
+
     private static Handler handler = null;
 
+    private ImageView titleUpdateBtn,chooseCityBtn,locationBtn,weatherImg,pmImg;
+    private TextView titleCityName,cityTv,timeTv,humidityTv,dayTv,pmDataTv,pmQualityTv,temperatureTv,climateTv,windTv;
+    private ProgressBar titleUpdateProgressBar;
+    private RelativeLayout viewMain;
     private ForcastFragment forcastFragment;
 
-    private String cityCode;
+    private String currentCity,cityCode;
 
+    private LocationUtil locationUtil;
+
+    public static Handler getHandler(){
+        return handler;
+    }
     //初始化今天天气组件
     private void initView(){
         viewMain = (RelativeLayout)findViewById(R.id.weather_main);
         titleCityName = (TextView)findViewById(R.id.title_city_name);
         chooseCityBtn = (ImageView)findViewById(R.id.title_my_city);
+        locationBtn = (ImageView)findViewById(R.id.title_location);
         titleUpdateBtn = (ImageView)findViewById(R.id.title_update_btn);
         titleUpdateProgressBar = (ProgressBar)findViewById(R.id.title_update_progress);
         titleUpdateProgressBar.setVisibility(View.INVISIBLE);
@@ -101,29 +100,41 @@ public class WeatherActivity extends Activity {
             updateWeather();
         }
     }
-    //更新背景图片
-    private void updateBackgroundPicture(){
-        if(NetUtil.getNetWorkState(WeatherActivity.this) == NetUtil.NETWORK_NONE){
-            //Toast.makeText(WeatherActivity.this,"网络挂了！",Toast.LENGTH_SHORT).show();
-        }else{
-            new CityPictureThread(this.cityCode).start();
+    //初始化背景图片
+    private void initBackground(){
+        SharedPreferences sp = getSharedPreferences(SETTING_CONFIG,MODE_PRIVATE);
+        String picUrl = sp.getString(LAST_UPDATE_PICTURE,"");
+        if(picUrl.equals("")){
+            updateBackgroundPicture();
         }
     }
-    private void updateBackgroundPictureOnScreen(Drawable dr){
-
-        //if(picUrl.equals("")){
-            //do nothing...
-        //}else{
-            /*
-            Bitmap bitmap = ImageUtil.getBitmapFromURL(picUrl);
-            Drawable dr = new BitmapDrawable(bitmap);
-            */
-            viewMain.setBackgroundDrawable(dr);
-        //}
-        //Log.d(WeatherActivity.TAG,picUrl);
+    //获取上次选择的城市代码
+    private String getCityCode(){
+        SharedPreferences sp = getSharedPreferences(SETTING_CONFIG,MODE_PRIVATE);
+        this.cityCode = sp.getString(MAIN_CITY_CODE,"101010100");
+        return cityCode;
+    }
+    //获取上次更新的天气信息
+    private Weather getLastUpdateWeather(){
+        Weather weather = null;
+        SharedPreferences sp = getSharedPreferences(SETTING_CONFIG,MODE_PRIVATE);
+        String lastUpdate = sp.getString(LAST_UPDATE_INFO,"");
+        if(!(lastUpdate.equals(""))){
+            weather = JSON.parseObject(lastUpdate,Weather.class);
+        }
+        return weather;
     }
 
     //更新天气信息
+    private void updateWeather(){
+        if(NetUtil.getNetWorkState(WeatherActivity.this) == NetUtil.NETWORK_NONE){
+            Toast.makeText(WeatherActivity.this,"网络挂了！",Toast.LENGTH_SHORT).show();
+        }else{
+            titleUpdateBtn.setVisibility(View.INVISIBLE);
+            titleUpdateProgressBar.setVisibility(View.VISIBLE);
+            new WeatherNetThread(this.cityCode).start();
+        }
+    }
     private void updateWeatherInfoOnScreen(Weather weather){
         Log.d(this.TAG, weather.toString());
         currentCity = weather.getCity();    //保存当前城市名称
@@ -141,77 +152,67 @@ public class WeatherActivity extends Activity {
         windTv.setText(weather.getFengli());
         titleUpdateBtn.setVisibility(View.VISIBLE);
         titleUpdateProgressBar.setVisibility(View.INVISIBLE);
-        //forcastFragment.setWeather(weather);    //  更新未来天气数据
-        //forcastFragment.setForcastInfo();
         Toast.makeText(WeatherActivity.this,"更新成功！",Toast.LENGTH_SHORT).show();
     }
-    //获取上次选择的城市代码
-    private String getCityCode(){
-        SharedPreferences sp = getSharedPreferences(SETTING_CONFIG,MODE_PRIVATE);
-        this.cityCode = sp.getString(MAIN_CITY_CODE,"101010100");
-        return cityCode;
-    }
-    //初始化背景图片
-    private void initBackground(){
-        SharedPreferences sp = getSharedPreferences(SETTING_CONFIG,MODE_PRIVATE);
-        String picUrl = sp.getString(LAST_UPDATE_PICTURE,"");
-        if(picUrl.equals("")){
-            updateBackgroundPicture();
+
+    //更新背景图片
+    private void updateBackgroundPicture(){
+        if(NetUtil.getNetWorkState(WeatherActivity.this) == NetUtil.NETWORK_NONE){
+            //Toast.makeText(WeatherActivity.this,"网络挂了！",Toast.LENGTH_SHORT).show();
+        }else{
+            new CityPictureThread(this.cityCode).start();
         }
     }
-    //获取上次更新的天气信息
-    private Weather getLastUpdateWeather(){
-        Weather weather = null;
+    private void updateBackgroundPictureOnScreen(Drawable dr){
+        viewMain.setBackgroundDrawable(dr);
+    }
+
+    //更新上一次选中的城市
+    private void updateCityCode(String cityCode){
+        this.cityCode = cityCode;
         SharedPreferences sp = getSharedPreferences(SETTING_CONFIG,MODE_PRIVATE);
-        String lastUpdate = sp.getString(LAST_UPDATE_INFO,"");
-        if(!(lastUpdate.equals(""))){
-            weather = JSON.parseObject(lastUpdate,Weather.class);
-        }
-        return weather;
+        SharedPreferences.Editor editor = sp.edit();
+        editor.putString(MAIN_CITY_CODE,cityCode);
+        editor.commit();
     }
     //初始化子线程更新天气信息handler
     private void initHandler(){
         handler = new Handler(){
             public void handleMessage(Message msg){
-            switch(msg.what){
-                case WeatherNetThread.MESSAGE_NEW_WEATHER_INFO:
-                    Weather weather = (Weather)msg.obj;
-                    SharedPreferences sp = getSharedPreferences(SETTING_CONFIG,MODE_PRIVATE);
-                    SharedPreferences.Editor editor = sp.edit();
-                    editor.putString(LAST_UPDATE_INFO,JSON.toJSONString(weather));
-                    editor.commit();
-                    updateWeatherInfoOnScreen(weather);
-                    forcastFragment.setWeather(weather);    //  更新未来天气数据
-                    forcastFragment.setForcastInfo();
-                    break;
-                case CityPictureThread.MESSAGE_NEW_CITY_PICTURE:
-                    //String picUrl = (String)msg.obj;
-                    Drawable dr = (Drawable)msg.obj;
-                    if(dr == null){
-                        dr = getResources().getDrawable(R.drawable.biz_plugin_weather_shenzhen_bg);
-                    }
-                    updateBackgroundPictureOnScreen(dr);
-                    break;
-                default:
-                    break;
+                switch(msg.what){
+                    case WeatherNetThread.MESSAGE_NEW_WEATHER_INFO:
+                        Weather weather = (Weather)msg.obj;
+                        SharedPreferences sp = getSharedPreferences(SETTING_CONFIG,MODE_PRIVATE);
+                        SharedPreferences.Editor editor = sp.edit();
+                        editor.putString(LAST_UPDATE_INFO,JSON.toJSONString(weather));
+                        editor.commit();
+                        updateWeatherInfoOnScreen(weather);
+                        forcastFragment.setWeather(weather);    //  更新未来天气数据
+                        forcastFragment.setForcastInfo();
+                        break;
+                    case CityPictureThread.MESSAGE_NEW_CITY_PICTURE:
+                        Drawable dr = (Drawable)msg.obj;
+                        if(dr == null){
+                            dr = getResources().getDrawable(R.drawable.biz_plugin_weather_shenzhen_bg);
+                        }
+                        updateBackgroundPictureOnScreen(dr);
+                        break;
+                    case LocationUtil.MESSAGE_GET_LOCATION_CODE:
+                        City city = (City)msg.obj;
+                        if(city != null){
+                            //城市已定位
+                            if(!WeatherActivity.this.cityCode.equals(city.getNumber())){
+                                updateCityCode(city.getNumber());
+                                updateWeather();
+                                updateBackgroundPicture();
+                            }
+                        }
+                        break;
+                    default:
+                        break;
                 }
             }
         };
-    }
-    public static Handler getHandler(){
-        return handler;
-    }
-    //更新天气信息
-    private void updateWeather(){
-        if(NetUtil.getNetWorkState(WeatherActivity.this) == NetUtil.NETWORK_NONE){
-            Toast.makeText(WeatherActivity.this,"网络挂了！",Toast.LENGTH_SHORT).show();
-        }else{
-            //String cityCode = getCityCode();
-            //String urlString = "http://wthrcdn.etouch.cn/WeatherApi?citykey=" + cityCode;
-            titleUpdateBtn.setVisibility(View.INVISIBLE);
-            titleUpdateProgressBar.setVisibility(View.VISIBLE);
-            new WeatherNetThread(this.cityCode).start();
-        }
     }
     //绑定事件
     private void bindEvents(){
@@ -225,31 +226,25 @@ public class WeatherActivity extends Activity {
         //选择城市按钮
         chooseCityBtn.setOnClickListener(new View.OnClickListener(){
             public void onClick(View v){
-                //启动CityActivity
-                /*
-                Intent i = new Intent(WeatherActivity.this,CityActivity.class);
-                i.putExtra("city",currentCity);
-                startActivityForResult(i, CODE_CITY_ACTIVITY);
-                */
                 Intent i = new Intent(WeatherActivity.this,ProvinceActivity.class);
                 i.putExtra("city",currentCity);
                 startActivityForResult(i, CODE_PROVINCE_ACTIVITY);
             }
         });
+        //定位
+        locationBtn.setOnClickListener(new View.OnClickListener(){
+            public void onClick(View v){
+                locationUtil.getLocation();
+                //getLocation(WeatherActivity.this.getApplicationContext());
+            }
+        });
     }
-    //更新上一次选中的城市
-    private void updateCityCode(String cityCode){
-        this.cityCode = cityCode;
-        SharedPreferences sp = getSharedPreferences(SETTING_CONFIG,MODE_PRIVATE);
-        SharedPreferences.Editor editor = sp.edit();
-        editor.putString(MAIN_CITY_CODE,cityCode);
-        editor.commit();
-    }
+
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if(requestCode == CODE_PROVINCE_ACTIVITY && resultCode == CityActivity.RESULT_CODE_CITYLIST_OK){
+        if(requestCode == CODE_PROVINCE_ACTIVITY && resultCode == CityActivity.RESULT_CODE_CITY_OK){
             City city = (City)data.getSerializableExtra("city");
-            //Toast.makeText(this,"你选择的城市是："+city.getCity()+",城市代码是"+city.getNumber(),Toast.LENGTH_LONG).show();
             if(!this.cityCode.equals(city.getNumber())){
                 updateCityCode(city.getNumber());
                 updateBackgroundPicture();
@@ -274,5 +269,7 @@ public class WeatherActivity extends Activity {
         initWeatherData();
 
         bindEvents();
+        this.locationUtil = new LocationUtil(this);
+        startService(new Intent(getBaseContext(), NotifyService.class));
     }
 }
